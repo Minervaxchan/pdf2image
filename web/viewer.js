@@ -1146,6 +1146,43 @@ const PDFViewerApplication = {
     }
   },
 
+  async toImage(){
+    const length = this.pagesCount;
+
+    const zip = new JSZip();
+    const images = zip.folder(`${this._docFilename}`);
+
+    const promiseArr = []
+
+    for(let i = 1; i <= length; i++){
+      const p = await this.pdfDocument.getPage(i).then(page => {
+        const viewport = page.getViewport({ scale: 3 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        canvas.style.height = '100%';
+        canvas.style.width = '100%';
+
+        return page.render({canvasContext: context, viewport}).promise.then(()=>{
+          const url = canvas.toDataURL();
+          images.file(`${i}.png`, splitBase64(url), {base64: true})
+        })
+      })
+      promiseArr.push(p);
+    }
+
+    await Promise.all(promiseArr);
+
+    zip.generateAsync({type: 'blob'}).then(res => {
+      saveAs(res,`${this._docFilename}.zip`)
+    })
+    
+    function splitBase64(url){
+      return url.split(',')[1]
+    }
+  },
+
   fallback(featureId) {
     this.externalServices.reportTelemetry({
       type: "unsupportedFeature",
@@ -1558,8 +1595,8 @@ const PDFViewerApplication = {
 
     this.documentInfo = info;
     this.metadata = metadata;
-    this._contentDispositionFilename ??= contentDispositionFilename;
     this._contentLength ??= contentLength;
+    this._contentDispositionFilename ??= contentDispositionFilename;
     console.log(`PDF ${pdfDocument.fingerprints[0]} [${info.PDFFormatVersion} ` + `${(info.Producer || "-").trim()} / ${(info.Creator || "-").trim()}] ` + `(PDF.js: ${_pdfjsLib.version || "-"})`);
     let pdfTitle = info?.Title;
     const metadataTitle = metadata?.get("dc:title");
@@ -1886,6 +1923,8 @@ const PDFViewerApplication = {
 
     eventBus._on("print", webViewerPrint);
 
+    eventBus._on("toimage", webViewerToImage);
+
     eventBus._on("download", webViewerDownload);
 
     eventBus._on("save", webViewerSave);
@@ -2032,6 +2071,8 @@ const PDFViewerApplication = {
     eventBus._off("presentationmode", webViewerPresentationMode);
 
     eventBus._off("print", webViewerPrint);
+
+    eventBus._off("toimage", webViewerToImage);
 
     eventBus._off("download", webViewerDownload);
 
@@ -2496,6 +2537,11 @@ function webViewerPresentationMode() {
 
 function webViewerPrint() {
   PDFViewerApplication.triggerPrinting();
+}
+
+function webViewerToImage() {
+  console.log('webViewerToImage');
+  PDFViewerApplication.toImage();
 }
 
 function webViewerDownload() {
@@ -13472,6 +13518,9 @@ class Toolbar {
       element: options.presentationModeButton,
       eventName: "presentationmode"
     }, {
+      element: options.toimage,
+      eventName: "toimage"
+    }, {
       element: options.download,
       eventName: "download"
     }, {
@@ -13544,6 +13593,7 @@ class Toolbar {
       eventName
     } of this.buttons) {
       element.addEventListener("click", evt => {
+        console.log(eventName);
         if (eventName !== null) {
           this.eventBus.dispatch(eventName, {
             source: this
@@ -15164,21 +15214,15 @@ PDFPrintService.prototype = {
   useRenderedPage() {
     this.throwIfInactive();
     const img = document.createElement("img");
-    const link = document.createElement('a');
-    link.download = 'daochu.png'
     const scratchCanvas = this.scratchCanvas;
     
     console.log('print');
     if ("toBlob" in scratchCanvas) {
       scratchCanvas.toBlob(function (blob) {
         img.src = URL.createObjectURL(blob);
-        link.href = URL.createObjectURL(blob);
-        link.click()
       });
     } else {
       img.src = scratchCanvas.toDataURL();
-      link.href = scratchCanvas.toDataURL();
-      link.click()
     }
 
     const wrapper = document.createElement("div");
@@ -15474,6 +15518,7 @@ function getViewerConfiguration() {
       openFile: document.getElementById("openFile"),
       print: document.getElementById("print"),
       presentationModeButton: document.getElementById("presentationMode"),
+      toimage: document.getElementById("toimage"),
       download: document.getElementById("download"),
       viewBookmark: document.getElementById("viewBookmark")
     },

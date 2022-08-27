@@ -35,7 +35,8 @@ See https://github.com/adobe-type-tools/cmap-resources
   <script src="../build/pdf.js"></script>
 
   <script src="viewer.js"></script>
-
+  <script src="../FileSaver.js"></script>
+  <script src="../jszip.min.js"></script>
 </head>
 
 <body tabindex="1">
@@ -279,6 +280,11 @@ See https://github.com/adobe-type-tools/cmap-resources
               <button id="print" class="toolbarButton hiddenMediumView" title="Print" tabindex="33"
                 data-l10n-id="print">
                 <span data-l10n-id="print_label">Print</span>
+              </button>
+
+              <button id="toimage" class="toolbarButton hiddenMediumView" title="ToImage" tabindex="33"
+                data-l10n-id="toimage">
+                <span data-l10n-id="toimage_label">ToImage</span>
               </button>
 
               <button id="download" class="toolbarButton hiddenMediumView" title="Download" tabindex="34"
